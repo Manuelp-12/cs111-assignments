@@ -95,7 +95,14 @@ public final class StdOut {
             System.err.println("Could not open " + filename);
         }
     }
-
+    public static void resetFile() {
+        try {
+            out = new PrintWriter(new OutputStreamWriter(System.out, CHARSET_NAME), true);
+        }
+        catch (UnsupportedEncodingException e) {
+            System.out.println(e);
+        }    
+    }
     public static void close() {
         out.close();
     }

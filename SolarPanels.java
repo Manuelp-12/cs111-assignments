@@ -28,15 +28,20 @@ public class SolarPanels {
      * @param streetMapFile the input file to read from
      */
     public void setupStreetMap(String streetMapFile) {
-        // WRITE YOUR CODE HERE
+        // Set the input file to the one provided in the parameter
         StdIn.setFile(streetMapFile);
-        int length = StdIn.readInt();
-        int width = StdIn.readInt();
 
+        // Read the length and width of the street map
+        int length = StdIn.readInt(); // Read the number of rows
+        int width = StdIn.readInt();  // Read the number of columns
+
+        // Initialize the streetMap 2D array with the given dimensions
         streetMap = new String[length][width];
 
+        // Populate the streetMap array with values from the file
         for (int i = 0; i < length; i++) {
             for (int j = 0; j < width; j++) {
+                // Read the next string and assign it to the current position
                 streetMap[i][j] = StdIn.readString();
             }
         }
@@ -49,22 +54,26 @@ public class SolarPanels {
      * @param parkingLotFile the lot input file to read
      */
     public void setupParkingLots(String parkingLotFile) {
-        // WRITE YOUR CODE HERE
+        // Set the input file to the one provided in the parameter
         StdIn.setFile(parkingLotFile);
+
+        // Read the number of parking lots
         int n = StdIn.readInt();
 
+        // Initialize the lots array to store n ParkingLot objects
         lots = new ParkingLot[n];
 
+        // Populate the lots array with data from the file
         for (int i = 0; i < n; i++) {
+            // Read the data for each parking lot
             String name = StdIn.readString();
-            int Maxpanels = StdIn.readInt();
+            int maxPanels = StdIn.readInt();
             double budget = StdIn.readDouble();
-            int capacity = StdIn.readInt();
+            int energyCapacity = StdIn.readInt();
             double efficiency = StdIn.readDouble();
-            
-            ParkingLot a = new ParkingLot(name, Maxpanels, budget, capacity, efficiency);
 
-            lots[i] = a;
+            // Create a new ParkingLot object and add it to the array
+            lots[i] = new ParkingLot(name, maxPanels, budget, energyCapacity, efficiency);
         }
     }
 
@@ -79,23 +88,35 @@ public class SolarPanels {
      * @param costPerPanel the fixed cost per panel, as a double
      */
     public void insertPanels(double costPerPanel) {
-        // WRITE YOUR CODE HERE
-        panels = new Panel[streetMap.length][streetMap[0].length];
+        // Initialize the panels array to match the dimensions of the streetMap
+        int rows = streetMap.length;
+        int cols = streetMap[0].length;
+        panels = new Panel[rows][cols];
 
-        for (int i = 0; i < lots.length; i++) {
+        // Iterate through each parking lot
+        for (ParkingLot lot : lots) {
+            String lotName = lot.getLotName();
+            double budgetRemaining = lot.getBudget();
+            int maxPanels = lot.getMaxPanels();
             int currentPanels = 0;
-            for (int a = 0; a < streetMap.length; a++) {
-                for (int b = 0; b < streetMap[0].length; b++) {
-                    if (streetMap[a][b].equals(lots[i].getLotName()) && (lots[i].getBudget() - ((currentPanels + 1) * costPerPanel) >= 0) && 
-                    (currentPanels <= lots[i].getMaxPanels())) {
-                        double ratedEfficiency = lots[i].getPanelEfficiency();
-                        int maxOutput = lots[i].getEnergyCapacity();
 
-                        double random = StdRandom.uniform();
-                        boolean works = (random < 0.95);
+            // Traverse the streetMap to place panels
+            for (int i = 0; i < rows; i++) {
+                for (int j = 0; j < cols; j++) {
+                    // Check if the cell matches the lot's name
+                    if (streetMap[i][j].equals(lotName)) {
+                        // Check if there's enough budget and room for more panels
+                        if (budgetRemaining >= costPerPanel && currentPanels < maxPanels) {
+                            // Determine if the panel works
+                            boolean works = StdRandom.uniform() < 0.95;
 
-                        panels[a][b] = new Panel(ratedEfficiency, maxOutput, works);
-                        currentPanels++;
+                            // Create and place the panel
+                            panels[i][j] = new Panel(lot.getPanelEfficiency(), lot.getEnergyCapacity(), works);
+
+                            // Update budget and panel count
+                            budgetRemaining -= costPerPanel;
+                            currentPanels++;
+                        }
                     }
                 }
             }
@@ -115,12 +136,24 @@ public class SolarPanels {
      * @param coefficient the coefficient to use
      */
     public void updateActualEfficiency(int temperature, double coefficient) {
-        // WRITE YOUR CODE HERE
-        double efficiencyLoss = coefficient * (temperature - 77);
+        // Traverse through the panels array
         for (int i = 0; i < panels.length; i++) {
             for (int j = 0; j < panels[i].length; j++) {
+                // Check if there is a panel at this location
                 if (panels[i][j] != null) {
-                    panels[i][j].setActualEfficiency(panels[i][j].getRatedEfficiency() - efficiencyLoss);
+                    // Calculate efficiency loss or gain
+                    double efficiencyChange = coefficient * (temperature - 77);
+
+                    // Update the panel's actual efficiency
+                    double updatedEfficiency = panels[i][j].getRatedEfficiency() - efficiencyChange;
+
+                    // Ensure the efficiency is capped at 100% (no panel is more than 100% efficient)
+                    if (updatedEfficiency > 100) {
+                        updatedEfficiency = 100;
+                    }
+
+                    // Update the panel's actual efficiency in the object
+                    panels[i][j].setActualEfficiency(updatedEfficiency);
                 }
             }
         }
@@ -135,12 +168,21 @@ public class SolarPanels {
      * RUN updateActualEfficiency BEFORE running this method.
      */
     public void updateElectricityGenerated() {
-        // WRITE YOUR CODE HERE
+        // Traverse through the panels array
         for (int i = 0; i < panels.length; i++) {
             for (int j = 0; j < panels[i].length; j++) {
-                if (panels[i][j] != null && panels[i][j].isWorking()) {
-                    int updatedElectricity = (int)((panels[i][j].getActualEfficiency() / 100.0) * 1500 * 4);
-                    panels[i][j].setElectricityGenerated(updatedElectricity);
+                // Check if there is a panel at this location
+                if (panels[i][j] != null && panels[i][j].isWorking() == true) {
+                    // Calculate the power output in watts
+                    double actualEfficiency = panels[i][j].getActualEfficiency();
+                    double powerOutput = (actualEfficiency / 100) * 1500;
+
+                    // Calculate daily electricity generated (in watt-hours)
+                    double dailyElectricityGenerated = powerOutput * 4; // 4 hours of peak sunlight
+                    int intdailyElectricityGenerated = (int)dailyElectricityGenerated;
+
+                    // Update the panel's electricityGenerated field
+                    panels[i][j].setElectricityGenerated(intdailyElectricityGenerated);
                 }
             }
         }
@@ -153,18 +195,22 @@ public class SolarPanels {
      * @return the number of working panels
      */
     public int countWorkingPanels(String parkingLot) {
-        // WRITE YOUR CODE HERE
-        //return -1; //PLACEHOLDER TO AVOID COMPILATION ERROR - REPLACE WITH YOUR CODE
-        int count = 0;
+        int workingPanelsCount = 0; // Initialize the count of working panels
 
-        for (int a = 0; a < panels.length; a++) {
-            for (int b = 0; b < panels[a].length; b++) {
-                if (streetMap[a][b].equals(parkingLot) && panels[a][b].isWorking()) {
-                    count++;
+        // Traverse through the panels array
+        for (int i = 0; i < panels.length; i++) {
+            for (int j = 0; j < panels[i].length; j++) {
+                // Check if there is a panel at this location
+                if (panels[i][j] != null) {
+                    // Check if the panel is in the specified parking lot and is working
+                    if (streetMap[i][j].equals(parkingLot) && panels[i][j].isWorking()) {
+                        workingPanelsCount++; // Increment the count of working panels
+                    }
                 }
             }
         }
-        return count;
+
+        return workingPanelsCount; // Return the total count
     }
 
     /**
@@ -172,23 +218,26 @@ public class SolarPanels {
      * @return the count of working panels in total, after repair
      */
     public int updateWorkingPanels() {
-        // WRITE YOUR CODE HERE
-        //return -1; // PLACEHOLDER TO AVOID COMPILATION ERROR - REPLACE WITH YOUR CODE
-        int count = 0;
+        int totalWorkingPanels = 0; // Initialize the counter for working panels
+
+        // Traverse through the panels array
         for (int i = 0; i < panels.length; i++) {
             for (int j = 0; j < panels[i].length; j++) {
+                // Check if there is a panel at this location
                 if (panels[i][j] != null) {
+                    // Check if the panel is not working
                     if (!panels[i][j].isWorking()) {
+                        // Repair the panel by setting it to working
                         panels[i][j].setIsWorking(true);
-                        count++;
                     }
-                    else {
-                        count++;
-                    }
+
+                    // Increment the count since it's now working
+                    totalWorkingPanels++;
                 }
             }
         }
-        return count;
+
+        return totalWorkingPanels; // Return the total count of working panels
     }
 
     /**
@@ -202,19 +251,29 @@ public class SolarPanels {
      * RUN electricityGenerated before running this method.
      */
     public double calculateSavings() {
-        // WRITE YOUR CODE HERE
-        //return -1; // PLACEHOLDER TO AVOID COMPILATION ERROR - REPLACE WITH YOUR CODE
-        double totalElectricity = 0;
+        double totalElectricityGenerated = 0.0; // Initialize the total electricity counter
 
+        // Traverse through the panels array
         for (int i = 0; i < panels.length; i++) {
             for (int j = 0; j < panels[i].length; j++) {
+                // Check if there is a panel at this location
                 if (panels[i][j] != null) {
-                    totalElectricity += panels[i][j].getElectricityGenerated();
+                    // Add the panel's daily electricity generated to the total
+                    totalElectricityGenerated += panels[i][j].getElectricityGenerated();
                 }
             }
         }
-        double savedMoney = ((totalElectricity * 0.001 * 365) / 4270000) * 60000000;
-        return savedMoney;
+
+        // Convert total electricity from watt-hours to kilowatt-hours for one year
+        double yearlyKilowattHours = totalElectricityGenerated * 0.001 * 365;
+
+        // Calculate the percentage of Rutgers' yearly electricity needs this meets
+        double percentOfNeedsMet = yearlyKilowattHours / 4270000;
+
+        // Calculate the monetary savings
+        double savings = percentOfNeedsMet * 60000000; // $60 million total electricity spending
+
+        return savings; // Return the calculated savings
     }
 
     /*
